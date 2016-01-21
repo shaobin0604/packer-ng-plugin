@@ -145,6 +145,36 @@ public final class PackerNg {
             return bb.getShort(0);
         }
 
+        public static void removeZipComment(File file) throws IOException {
+            RandomAccessFile raf = null;
+            try {
+                raf = new RandomAccessFile(file, "rw");
+                long index = raf.length();
+                byte[] buffer = new byte[MAGIC.length];
+                index -= MAGIC.length;
+                // read magic bytes
+                raf.seek(index);
+                raf.readFully(buffer);
+                // check magic bytes matched
+                if (isMagicMatched(buffer)) {
+                    index -= SHORT_LENGTH;
+                    raf.seek(index);
+                    // read content length field
+                    int length = readShort(raf);
+                    // seek back `channel` field length
+                    index -= length;
+                    // seek back `zip comment length` field length
+                    index -= SHORT_LENGTH;
+                    raf.seek(index);
+                    writeShort(0, raf);
+                    raf.setLength(raf.getFilePointer());
+                }
+            } finally {
+                if (raf != null) {
+                    raf.close();
+                }
+            }
+        }
 
         public static void writeZipComment(File file, String comment) throws IOException {
             if (hasZipCommentMagic(file)) {
@@ -275,6 +305,10 @@ public final class PackerNg {
             return market.equals(readMarket(file));
         }
 
+        public static void removeMarket(final File file) throws IOException {
+            removeZipComment(file);
+        }
+
         public static void println(String msg) {
             System.out.println(TAG + ": " + msg);
         }
@@ -398,6 +432,7 @@ public final class PackerNg {
             final String apkName = baseName + "-" + market + "." + extName;
             File destFile = new File(outputDir, apkName);
             Helper.copyFile(apkFile, destFile);
+            Helper.removeMarket(destFile);
             Helper.writeMarket(destFile, market);
             if (Helper.verifyMarket(destFile, market)) {
                 ++processed;

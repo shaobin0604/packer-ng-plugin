@@ -8,3 +8,5 @@ repo/
 *.pyc
 .DS_Store
 packer.properties
+local.properties
+
