@@ -145,7 +145,7 @@ public final class PackerNg {
             return bb.getShort(0);
         }
 
-        public static void removeZipComment(File file) throws IOException {
+        public static void writeZipComment(File file, String comment) throws IOException {
             RandomAccessFile raf = null;
             try {
                 raf = new RandomAccessFile(file, "rw");
@@ -156,6 +156,7 @@ public final class PackerNg {
                 raf.seek(index);
                 raf.readFully(buffer);
                 // check magic bytes matched
+                // 1. remove zip comment if exists
                 if (isMagicMatched(buffer)) {
                     index -= SHORT_LENGTH;
                     raf.seek(index);
@@ -169,31 +170,24 @@ public final class PackerNg {
                     writeShort(0, raf);
                     raf.setLength(raf.getFilePointer());
                 }
+                // 2. write zip comment
+                // {@see java.util.zip.ZipOutputStream.writeEND}
+                byte[] data = comment.getBytes(UTF_8);
+                raf.seek(file.length() - SHORT_LENGTH);
+                // write zip comment length
+                // (content field length + length field length + magic field length)
+                writeShort(data.length + SHORT_LENGTH + MAGIC.length, raf);
+                // write content
+                writeBytes(data, raf);
+                // write content length
+                writeShort(data.length, raf);
+                // write magic bytes
+                writeBytes(MAGIC, raf);
             } finally {
                 if (raf != null) {
                     raf.close();
                 }
             }
-        }
-
-        public static void writeZipComment(File file, String comment) throws IOException {
-            if (hasZipCommentMagic(file)) {
-                throw new IllegalStateException("zip comment already exists, ignore.");
-            }
-            // {@see java.util.zip.ZipOutputStream.writeEND}
-            byte[] data = comment.getBytes(UTF_8);
-            final RandomAccessFile raf = new RandomAccessFile(file, "rw");
-            raf.seek(file.length() - SHORT_LENGTH);
-            // write zip comment length
-            // (content field length + length field length + magic field length)
-            writeShort(data.length + SHORT_LENGTH + MAGIC.length, raf);
-            // write content
-            writeBytes(data, raf);
-            // write content length
-            writeShort(data.length, raf);
-            // write magic bytes
-            writeBytes(MAGIC, raf);
-            raf.close();
         }
 
         public static boolean hasZipCommentMagic(File file) throws IOException {
@@ -303,10 +297,6 @@ public final class PackerNg {
 
         public static boolean verifyMarket(final File file, final String market) throws IOException {
             return market.equals(readMarket(file));
-        }
-
-        public static void removeMarket(final File file) throws IOException {
-            removeZipComment(file);
         }
 
         public static void println(String msg) {
@@ -432,7 +422,6 @@ public final class PackerNg {
             final String apkName = baseName + "-" + market + "." + extName;
             File destFile = new File(outputDir, apkName);
             Helper.copyFile(apkFile, destFile);
-            Helper.removeMarket(destFile);
             Helper.writeMarket(destFile, market);
             if (Helper.verifyMarket(destFile, market)) {
                 ++processed;
