@@ -395,7 +395,7 @@ public final class PackerNg {
         }
         int processed = 0;
         for (final String market : markets) {
-            final String apkName = baseName + "-" + market + "." + extName;
+            final String apkName = baseName + "_" + market + "." + extName;
             File destFile = new File(outputDir, apkName);
             Helper.copyFile(apkFile, destFile);
             Helper.writeMarket(destFile, market);
